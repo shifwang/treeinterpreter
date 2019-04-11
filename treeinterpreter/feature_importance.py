@@ -30,7 +30,7 @@ def feature_importance(rf, X, y, type = 'oob'):
         SE += (tmp / sum(tmp)) ** 2
     out /= rf.n_estimators
     SE /= rf.n_estimators
-    SE = ((SE - out ** 2) / rf.n_estimators) ** .5 * 2
+    SE = ((SE - out ** 2) / rf.n_estimators) ** .5 
     return out, SE
     #if np.sum(out[out > 0]) + 10 * np.sum(out[out < 0]) < 0:
     #    return out
