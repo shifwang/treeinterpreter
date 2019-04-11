@@ -6,22 +6,44 @@ def feature_importance(rf, X, y, type = 'oob'):
     if len(y.shape) != 2:
         raise ValueError('y must be 2d array (n_samples, 1) if numerical or (n_samples, n_categories).')
     out = np.zeros((n_features,))
+    SE = np.zeros((n_features,))
     for tree in rf.estimators_:
         if type == 'oob':
-            unsampled_indices = _generate_unsampled_indices(tree.random_state, n_samples)
-            _, _, contributions = _predict_tree(tree, X[unsampled_indices])
-            out +=  np.tensordot(y[unsampled_indices,:], contributions, axes=([0, 1], [0, 2])) / len(unsampled_indices)
+            if rf.bootstrap:
+                unsampled_indices = _generate_unsampled_indices(tree.random_state, n_samples)
+            else:
+                raise ValueError('Without bootstrap, it is not possible to calculate oob.')
+            _, _, contributions = _predict_tree(tree, X[unsampled_indices,:])
+            if len(contributions.shape) == 2:
+                contributions = contributions[:,:,np.newaxis]
+            tmp =  np.tensordot(y[unsampled_indices,:], contributions, axes=([0, 1], [0, 2])) 
+            out +=  tmp / sum(tmp)
+            SE += (tmp / sum(tmp)) ** 2
         elif type == 'test':
             _, _, contributions = _predict_tree(tree, X)
-            out +=  np.tensordot(y, contributions, axes=([0, 1], [0, 2])) / n_samples
+            if len(contributions.shape) == 2:
+                contributions = contributions[:,:,np.newaxis]
+            tmp =  np.tensordot(y, contributions, axes=([0, 1], [0, 2])) 
+            out +=  tmp / sum(tmp)
+            SE += (tmp / sum(tmp)) ** 2
         elif type == 'classic':
-            sampled_indices = _generate_sample_indices(tree.random_state, n_samples)
-            _, _, contributions = _predict_tree(tree, X[sampled_indices])
-            out +=  np.tensordot(y[sampled_indices,:], contributions, axes=([0, 1], [0, 2])) / len(sampled_indices)
+            if rf.bootstrap:
+                sampled_indices = _generate_sample_indices(tree.random_state, n_samples)
+            else:
+                sampled_indices = np.arange(n_samples)
+            _, _, contributions = _predict_tree(tree, X[sampled_indices,:])
+            if len(contributions.shape) == 2:
+                contributions = contributions[:,:,np.newaxis]
+            tmp = np.tensordot(y[sampled_indices,:], contributions, axes=([0, 1], [0, 2]))
+            out +=  tmp / sum(tmp)
+            SE += (tmp / sum(tmp)) ** 2
         else:
             raise ValueError('type is not recognized. (%s)'%(type))
     out /= rf.n_estimators
-    if np.sum(out[out > 0]) + 10 * np.sum(out[out < 0]) < 0:
-        return out
-    else:
-        return out / np.sum(out) 
+    SE /= rf.n_estimators
+    SE = ((SE - out ** 2) / rf.n_estimators) ** .5 * 2
+    return out, SE
+    #if np.sum(out[out > 0]) + 10 * np.sum(out[out < 0]) < 0:
+    #    return out
+    #else:
+    #    return out / np.sum(out) 
