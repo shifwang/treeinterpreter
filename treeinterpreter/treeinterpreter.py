@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+import warnings
 import sklearn
 
 from sklearn.ensemble.forest import ForestClassifier, ForestRegressor
@@ -67,6 +68,15 @@ def _predict_tree(model, X, joint_contribution=False):
 
         biases = np.tile(values[paths[0][0]], (X.shape[0], 1))
         line_shape = (X.shape[1], model.n_classes_)
+    else:
+        warnings.warn('the instance is not recognized. Try to proceed with classifier but could fail.')
+        normalizer = values.sum(axis=1)[:, np.newaxis]
+        normalizer[normalizer == 0.0] = 1.0
+        values /= normalizer
+
+        biases = np.tile(values[paths[0][0]], (X.shape[0], 1))
+        line_shape = (X.shape[1], model.n_classes_)
+
     direct_prediction = values[leaves]
     
     
