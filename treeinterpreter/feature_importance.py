@@ -19,6 +19,13 @@ def feature_importance(rf, X, y, type = 'oob'):
             tmp =  np.tensordot(y[unsampled_indices,:], contributions, axes=([0, 1], [0, 2])) 
             out +=  tmp / sum(tmp)
             SE += (tmp / sum(tmp)) ** 2
+        elif type == 'test':
+            _, _, contributions = _predict_tree(tree, X)
+            if len(contributions.shape) == 2:
+                contributions = contributions[:,:,np.newaxis]
+            tmp =  np.tensordot(y, contributions, axes=([0, 1], [0, 2])) 
+            out +=  tmp / sum(tmp)
+            SE += (tmp / sum(tmp)) ** 2
         elif type == 'classic':
             if rf.bootstrap:
                 sampled_indices = _generate_sample_indices(tree.random_state, n_samples)
