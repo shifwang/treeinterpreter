@@ -10,35 +10,24 @@ def feature_importance(rf, X, y, type = 'oob'):
     for tree in rf.estimators_:
         if type == 'oob':
             if rf.bootstrap:
-                unsampled_indices = _generate_unsampled_indices(tree.random_state, n_samples)
+                indices = _generate_unsampled_indices(tree.random_state, n_samples)
             else:
                 raise ValueError('Without bootstrap, it is not possible to calculate oob.')
-            _, _, contributions = _predict_tree(tree, X[unsampled_indices,:])
-            if len(contributions.shape) == 2:
-                contributions = contributions[:,:,np.newaxis]
-            tmp =  np.tensordot(y[unsampled_indices,:], contributions, axes=([0, 1], [0, 2])) 
-            out +=  tmp / sum(tmp)
-            SE += (tmp / sum(tmp)) ** 2
         elif type == 'test':
-            _, _, contributions = _predict_tree(tree, X)
-            if len(contributions.shape) == 2:
-                contributions = contributions[:,:,np.newaxis]
-            tmp =  np.tensordot(y, contributions, axes=([0, 1], [0, 2])) 
-            out +=  tmp / sum(tmp)
-            SE += (tmp / sum(tmp)) ** 2
+            indices = np.arange(n_samples)
         elif type == 'classic':
             if rf.bootstrap:
-                sampled_indices = _generate_sample_indices(tree.random_state, n_samples)
+                indices = _generate_sample_indices(tree.random_state, n_samples)
             else:
-                sampled_indices = np.arange(n_samples)
-            _, _, contributions = _predict_tree(tree, X[sampled_indices,:])
-            if len(contributions.shape) == 2:
-                contributions = contributions[:,:,np.newaxis]
-            tmp = np.tensordot(y[sampled_indices,:], contributions, axes=([0, 1], [0, 2]))
-            out +=  tmp / sum(tmp)
-            SE += (tmp / sum(tmp)) ** 2
+                indices = np.arange(n_samples)
         else:
             raise ValueError('type is not recognized. (%s)'%(type))
+        _, _, contributions = _predict_tree(tree, X[indices,:])
+        if len(contributions.shape) == 2:
+            contributions = contributions[:,:,np.newaxis]
+        tmp =  np.tensordot(y[indices,:], contributions, axes=([0, 1], [0, 2])) 
+        out +=  tmp / sum(tmp)
+        SE += (tmp / sum(tmp)) ** 2
     out /= rf.n_estimators
     SE /= rf.n_estimators
     SE = ((SE - out ** 2) / rf.n_estimators) ** .5 * 2
