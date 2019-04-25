@@ -37,14 +37,14 @@ class TestTreeinterpreter(unittest.TestCase):
 
             base_prediction = dt.predict(testX)
             pred, bias, contrib = treeinterpreter.predict(dt, testX)
-            self.assertTrue(np.allclose(base_prediction, pred))
-            self.assertTrue(np.allclose(pred, bias + np.sum(contrib, axis=1)))
+            self.assertTrue(np.allclose(base_prediction, pred.flatten()))
+            self.assertTrue(np.allclose(pred.flatten(), bias + np.sum(contrib, axis=1)))
             
             testX = X[-1:]
             base_prediction = dt.predict(testX)
             pred, bias, contrib = treeinterpreter.predict(dt, testX)
-            self.assertTrue(np.allclose(base_prediction, pred))
-            self.assertTrue(np.allclose(pred, bias + np.sum(contrib, axis=1)))
+            self.assertTrue(np.allclose(base_prediction.flatten(), pred))
+            self.assertTrue(np.allclose(pred, (bias + np.sum(contrib, axis=1).flatten())))
         
         
     def test_tree_classifier(self):
@@ -72,8 +72,8 @@ class TestTreeinterpreter(unittest.TestCase):
 
             base_prediction = dt.predict(testX)
             pred, bias, contrib = treeinterpreter.predict(dt, testX)
-            self.assertTrue(np.allclose(base_prediction, pred))
-            self.assertTrue(np.allclose(pred, bias + np.sum(contrib, axis=1)))
+            self.assertTrue(np.allclose(base_prediction, pred.flatten()))
+            self.assertTrue(np.allclose(pred.flatten(), bias + np.sum(contrib, axis=1)))
         
     def test_forest_regressor_joint(self):
         for ForestRegressor in (RandomForestRegressor, ExtraTreesRegressor):
@@ -87,9 +87,8 @@ class TestTreeinterpreter(unittest.TestCase):
 
             base_prediction = dt.predict(testX)
             pred, bias, contribs = treeinterpreter.predict(dt, testX, joint_contribution=True)
-            self.assertTrue(np.allclose(base_prediction, pred))
-            
-            self.assertTrue(np.allclose(base_prediction, np.array([sum(contrib.values()) for contrib in contribs]) + bias))
+            self.assertTrue(np.allclose(base_prediction.flatten(), pred.flatten()))
+            self.assertTrue(np.allclose(base_prediction.flatten(), (np.array([sum(contrib.values())[0] for contrib in contribs]) + bias).flatten()))
 
     def test_forest_classifier(self):
         for ForestClassifier in (RandomForestClassifier, ExtraTreesClassifier):
