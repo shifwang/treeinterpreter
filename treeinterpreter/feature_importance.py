@@ -59,7 +59,7 @@ def rf_accuracy(rf, X, y, type = 'oob', metric = 'accuracy'):
     return tmp / count
     
     
-def feature_importance(rf, X, y, type = 'oob', normalized = True, balanced = True):
+def feature_importance(rf, X, y, type = 'oob', normalized = False, balanced = False):
     n_samples, n_features = X.shape
     if len(y.shape) != 2:
         raise ValueError('y must be 2d array (n_samples, 1) if numerical or (n_samples, n_categories).')
@@ -82,19 +82,21 @@ def feature_importance(rf, X, y, type = 'oob', normalized = True, balanced = Tru
             raise ValueError('type is not recognized. (%s)'%(type))
         _, _, contributions = _predict_tree(tree, X[indices,:])
         if balanced and (type == 'oob' or type == 'test'):
-                base_indices = _generate_sample_indices(tree.random_state, n_samples)
+            base_indices = _generate_sample_indices(tree.random_state, n_samples)
             ids = tree.apply(X[indices, :])
             base_ids = tree.apply(X[base_indices, :])
             tmp1, tmp2 = np.unique(ids, return_counts = True)
             weight1 = {key: 1. / value for key, value in zip(tmp1, tmp2)}
             tmp1, tmp2 = np.unique(base_ids, return_counts = True)
             weight2 = {key: value for key, value in zip(tmp1, tmp2)}
-            final_weights = np.array([weights1[id] * weights2[id] for id in ids])
+            final_weights = np.array([[weight1[id] * weight2[id]] for id in ids])
+            final_weights /= np.mean(final_weights)
         else:
             final_weights = 1
         if len(contributions.shape) == 2:
             contributions = contributions[:,:,np.newaxis]
-        tmp =  np.tensordot(y[indices,:] * final_weights, contributions, axes=([0, 1], [0, 2])) 
+        #print(final_weights.shape)
+        tmp =  np.tensordot(np.array(y[indices,:]) * final_weights, contributions, axes=([0, 1], [0, 2])) 
         if normalized:
             out +=  tmp / sum(tmp)
         else:
