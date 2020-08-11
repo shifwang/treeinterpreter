@@ -2,6 +2,7 @@ from .treeinterpreter import _predict_tree
 from sklearn.ensemble.forest import _generate_unsampled_indices, _generate_sample_indices
 from sklearn.metrics import accuracy_score, mean_squared_error
 import numpy as np
+from sklearn.preprocessing import scale
 def MDA(rf, X, y, type = 'oob', n_trials = 10, metric = 'accuracy'):
     if len(y.shape) != 2:
         raise ValueError('y must be 2d array (n_samples, 1) if numerical or (n_samples, n_categories).')
@@ -47,11 +48,11 @@ def rf_accuracy(rf, X, y, type = 'oob', metric = 'accuracy'):
     for tree in rf.estimators_:
         if type == 'oob':
             if rf.bootstrap:
-                indices = _generate_unsampled_indices(tree.random_state, n_samples)
+                indices = _generate_unsampled_indices(tree.random_state, n_samples, n_samples)
             else:
                 raise ValueError('Without bootstrap, it is not possible to calculate oob.')
         elif type == 'train':
-            indices = _generate_sample_indices(tree.random_state, n_samples)
+            indices = _generate_sample_indices(tree.random_state, n_samples, n_samples)
         else:
             raise ValueError('type is not recognized. (%s)'%(type))
         tmp +=  score(y[indices,:], tree.predict(X[indices, :])) * len(indices) 
@@ -59,30 +60,34 @@ def rf_accuracy(rf, X, y, type = 'oob', metric = 'accuracy'):
     return tmp / count
     
     
-def feature_importance(rf, X, y, type = 'oob', normalized = False, balanced = False):
+def feature_importance(rf, X, y, type = 'oob', normalized = False, balanced = False, demean=False,normal_fX = False):
     n_samples, n_features = X.shape
     if len(y.shape) != 2:
         raise ValueError('y must be 2d array (n_samples, 1) if numerical or (n_samples, n_categories).')
     out = np.zeros((n_features,))
     SE = np.zeros((n_features,))
+    if demean:
+        # demean y
+        y = y - np.mean(y, axis=0)
+        
     for tree in rf.estimators_:
         if type == 'oob':
             if rf.bootstrap:
-                indices = _generate_unsampled_indices(tree.random_state, n_samples)
+                indices = _generate_unsampled_indices(tree.random_state, n_samples, n_samples)
             else:
                 raise ValueError('Without bootstrap, it is not possible to calculate oob.')
         elif type == 'test':
             indices = np.arange(n_samples)
         elif type == 'classic':
             if rf.bootstrap:
-                indices = _generate_sample_indices(tree.random_state, n_samples)
+                indices = _generate_sample_indices(tree.random_state, n_samples, n_samples)
             else:
                 indices = np.arange(n_samples)
         else:
             raise ValueError('type is not recognized. (%s)'%(type))
         _, _, contributions = _predict_tree(tree, X[indices,:])
         if balanced and (type == 'oob' or type == 'test'):
-            base_indices = _generate_sample_indices(tree.random_state, n_samples)
+            base_indices = _generate_sample_indices(tree.random_state, n_samples, n_samples)
             ids = tree.apply(X[indices, :])
             base_ids = tree.apply(X[base_indices, :])
             tmp1, tmp2 = np.unique(ids, return_counts = True)
@@ -95,7 +100,10 @@ def feature_importance(rf, X, y, type = 'oob', normalized = False, balanced = Fa
             final_weights = 1
         if len(contributions.shape) == 2:
             contributions = contributions[:,:,np.newaxis]
-        #print(final_weights.shape)
+        #print(contributions.shape, y[indices,:].shape)
+        if normal_fX:
+            for k in range(contributions.shape[-1]):
+                contributions[:, :, k] = scale(contributions[:, :, k]) 
         tmp =  np.tensordot(np.array(y[indices,:]) * final_weights, contributions, axes=([0, 1], [0, 2])) 
         if normalized:
             out +=  tmp / sum(tmp)
